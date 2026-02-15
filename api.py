@@ -4,6 +4,12 @@ from fastapi import FastAPI
 from supabase import create_client, Client
 from pydantic import BaseModel
 from typing import List
+from fastapi import FastAPI, UploadFile, File, Form
+import pdfplumber
+from utils.text_cleaner import clean_text
+from utils.ats_matcher import extract_skills_from_text, match_skills
+from utils.semantic_matcher import calculate_semantic_match
+from utils.resume_rewriter import optimize_bullet_point
 
 # 1. Load environment variables from your .env file
 load_dotenv()
@@ -67,5 +73,72 @@ def get_history(email: str):
         # Fetch all rows where the email matches
         response = supabase.table("resume_history").select("*").eq("user_email", email).execute()
         return {"status": "success", "data": response.data}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    
+
+        # 3. Main Analysis Endpoint
+@app.post("/api/analyze")
+async def analyze_resume(
+    resume: UploadFile = File(...),
+    job_description: str = Form(...)
+):
+    try:
+        # 1. Validate File Type
+        if resume.content_type != "application/pdf":
+            return {"status": "error", "message": "Please upload a valid PDF file."}
+
+        # 2. Extract Text using pdfplumber
+        text = ""
+        with pdfplumber.open(resume.file) as pdf:
+            for page in pdf.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+        
+        if not text.strip():
+            return {"status": "error", "message": "Could not extract text. The PDF might be an image."}
+
+        # 3. The "Brain" - Clean text and calculate scores
+        cleaned_text = clean_text(text)
+        resume_skills = extract_skills_from_text(cleaned_text)
+        
+        jd_clean = job_description.lower()
+        jd_skills = extract_skills_from_text(jd_clean)
+        
+        match_pct, matched, missing = match_skills(resume_skills, jd_skills)
+        sem_score = calculate_semantic_match(cleaned_text, jd_clean)
+
+        # 4. Return the Final JSON Response
+        return {
+            "status": "success",
+            "data": {
+                "ats_score": match_pct,
+                "semantic_score": sem_score,
+                # Convert 'sets' to 'lists' so FastAPI can send them as JSON
+                "matched_skills": list(matched), 
+                "missing_skills": list(missing)
+            }
+        }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    
+
+
+class RewriteRequest(BaseModel):
+    bullet_point: str
+
+@app.post("/api/rewrite")
+def api_rewrite_bullet(data: RewriteRequest):
+    try:
+        # Call your function from the utils folder
+        improved_text = optimize_bullet_point(data.bullet_point)
+
+        return {
+            "status": "success",
+            "original": data.bullet_point,
+            "improved": improved_text
+        }
     except Exception as e:
         return {"status": "error", "message": str(e)}
