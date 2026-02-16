@@ -1,14 +1,17 @@
+import os
+from dotenv import load_dotenv
 import google.generativeai as genai
-import streamlit as st
+
+load_dotenv()
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def generate_study_plan(missing_skills):
     """
     Generates a 5-day crash course for the identified missing skills.
     """
     try:
-        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
         # Using the Flash model as it's faster for generating long lists
-        model = genai.GenerativeModel('gemini-1.5-flash')
+        model = genai.GenerativeModel('gemini-2.5-flash')
 
         skills_text = ", ".join(missing_skills)
 

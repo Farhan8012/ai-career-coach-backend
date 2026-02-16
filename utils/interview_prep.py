@@ -1,13 +1,16 @@
+import os
+from dotenv import load_dotenv
 import google.generativeai as genai
-import streamlit as st
+
+load_dotenv()
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
 
 def generate_interview_questions(resume_text, jd_text):
     """
     Generates 5 custom interview questions based on the candidate's specific experience.
     """
     try:
-        # Load API Key
-        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
         model = genai.GenerativeModel('gemini-2.5-flash')
 
         prompt = f"""

@@ -10,6 +10,9 @@ from utils.text_cleaner import clean_text
 from utils.ats_matcher import extract_skills_from_text, match_skills
 from utils.semantic_matcher import calculate_semantic_match
 from utils.resume_rewriter import optimize_bullet_point
+from utils.learning_roadmap import generate_study_plan
+from utils.cover_letter_generator import generate_cover_letter  # Check if this is the exact function name!
+from utils.interview_prep import generate_interview_questions # Check if this is the exact function name!
 
 # 1. Load environment variables from your .env file
 load_dotenv()
@@ -129,6 +132,17 @@ async def analyze_resume(
 class RewriteRequest(BaseModel):
     bullet_point: str
 
+class CoverLetterRequest(BaseModel):
+    resume_text: str
+    job_description: str
+
+class StudyPlanRequest(BaseModel):
+    missing_skills: List[str]
+
+class InterviewPrepRequest(BaseModel):
+    resume_text: str
+    job_role: str
+
 @app.post("/api/rewrite")
 def api_rewrite_bullet(data: RewriteRequest):
     try:
@@ -140,5 +154,32 @@ def api_rewrite_bullet(data: RewriteRequest):
             "original": data.bullet_point,
             "improved": improved_text
         }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+# --- GENERATIVE AI ENDPOINTS ---
+
+@app.post("/api/cover-letter")
+def api_cover_letter(data: CoverLetterRequest):
+    try:
+        cover_letter = generate_cover_letter(data.resume_text, data.job_description)
+        return {"status": "success", "cover_letter": cover_letter}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/study-plan")
+def api_study_plan(data: StudyPlanRequest):
+    try:
+        plan = generate_study_plan(data.missing_skills)
+        return {"status": "success", "study_plan": plan}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/interview-prep")
+def api_interview_prep(data: InterviewPrepRequest):
+    try:
+        questions = generate_interview_questions(data.resume_text, data.job_role)
+        return {"status": "success", "questions": questions}
     except Exception as e:
         return {"status": "error", "message": str(e)}

@@ -1,13 +1,16 @@
+import os
+from dotenv import load_dotenv
 import google.generativeai as genai
-import streamlit as st
+
+load_dotenv()
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
 
 def generate_cover_letter(resume_text, jd_text, company_name="Hiring Manager"):
     """
     Generates a personalized cover letter connecting resume projects to JD requirements.
     """
     try:
-        # Configure API
-        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
         # You can use 'gemini-2.5-flash' or 'gemini-pro'
         model = genai.GenerativeModel('gemini-2.5-flash')
 
