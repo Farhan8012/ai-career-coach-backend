@@ -6,3 +6,4 @@ google-generativeai
 pdfplumber
 scikit-learn
 python-multipart
+requests

@@ -13,6 +13,8 @@ from utils.resume_rewriter import optimize_bullet_point
 from utils.learning_roadmap import generate_study_plan
 from utils.cover_letter_generator import generate_cover_letter  # Check if this is the exact function name!
 from utils.interview_prep import generate_interview_questions # Check if this is the exact function name!
+from utils.github_scanner import analyze_github_profile
+from utils.github_scanner import analyze_github_profile, generate_dev_scorecard
 
 # 1. Load environment variables from your .env file
 load_dotenv()
@@ -181,5 +183,27 @@ def api_interview_prep(data: InterviewPrepRequest):
     try:
         questions = generate_interview_questions(data.resume_text, data.job_role)
         return {"status": "success", "questions": questions}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    
+
+# --- GITHUB INTEGRATION ---
+
+# --- GITHUB INTEGRATION ---
+
+@app.get("/api/github/{username}")
+def api_get_github_profile(username: str):
+    try:
+        # 1. Call the scanner function to get raw stats
+        result = analyze_github_profile(username)
+        
+        # 2. If we successfully got the stats, generate the AI Score Card
+        if result.get("status") == "success":
+            # Pass the raw data to Gemini
+            ai_summary = generate_dev_scorecard(result["data"])
+            # Add the AI summary to the final response
+            result["data"]["ai_scorecard"] = ai_summary
+            
+        return result
     except Exception as e:
         return {"status": "error", "message": str(e)}
