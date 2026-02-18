@@ -178,11 +178,58 @@ def api_study_plan(data: StudyPlanRequest):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-@app.post("/api/interview-prep")
-def api_interview_prep(data: InterviewPrepRequest):
+# --- THE MASTER ENDPOINT ---
+
+@app.post("/api/evaluate-candidate")
+async def evaluate_candidate(
+    github_username: str = Form(...),
+    job_description: str = Form(...),
+    resume: UploadFile = File(...)
+):
     try:
-        questions = generate_interview_questions(data.resume_text, data.job_role)
-        return {"status": "success", "questions": questions}
+        # 1. READ THE RESUME PDF
+        if resume.content_type != "application/pdf":
+            return {"status": "error", "message": "Please upload a valid PDF file."}
+
+        text = ""
+        with pdfplumber.open(resume.file) as pdf:
+            for page in pdf.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+
+        # 2. RUN RESUME ANALYSIS (From Day 3)
+        cleaned_text = clean_text(text)
+        resume_skills = extract_skills_from_text(cleaned_text)
+        jd_clean = job_description.lower()
+        jd_skills = extract_skills_from_text(jd_clean)
+        
+        match_pct, matched, missing = match_skills(resume_skills, jd_skills)
+        sem_score = calculate_semantic_match(cleaned_text, jd_clean)
+
+        # 3. RUN GITHUB ANALYSIS (From Day 5)
+        github_result = analyze_github_profile(github_username)
+        github_data = None
+        
+        if github_result.get("status") == "success":
+            github_data = github_result["data"]
+            # Generate the Dev Scorecard using the Gemini AI
+            github_data["ai_scorecard"] = generate_dev_scorecard(github_data)
+
+        # 4. COMBINE INTO THE ULTIMATE JSON REPORT
+        return {
+            "status": "success",
+            "candidate_evaluation": {
+                "resume_metrics": {
+                    "ats_score": match_pct,
+                    "semantic_score": sem_score,
+                    "matched_skills": list(matched),
+                    "missing_skills": list(missing)
+                },
+                "github_metrics": github_data
+            }
+        }
+        
     except Exception as e:
         return {"status": "error", "message": str(e)}
     
@@ -205,5 +252,28 @@ def api_get_github_profile(username: str):
             result["data"]["ai_scorecard"] = ai_summary
             
         return result
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+# --- THE MASTER ENDPOINT ---
+
+@app.post("/api/evaluate-candidate")
+async def evaluate_candidate(
+    github_username: str = Form(...),
+    job_description: str = Form(...),
+    resume: UploadFile = File(...)
+):
+    try:
+        # 1. We will run the Resume Analysis here
+        
+        # 2. We will run the GitHub Analysis here
+        
+        # 3. We will combine them and return the final report
+        
+        return {
+            "status": "success",
+            "message": f"Successfully received data for {github_username}. Ready to combine!"
+        }
+        
     except Exception as e:
         return {"status": "error", "message": str(e)}
