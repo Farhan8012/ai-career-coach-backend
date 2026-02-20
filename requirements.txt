@@ -7,3 +7,4 @@ pdfplumber
 scikit-learn
 python-multipart
 requests
+supabase

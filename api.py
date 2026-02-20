@@ -15,15 +15,17 @@ from utils.cover_letter_generator import generate_cover_letter  # Check if this 
 from utils.interview_prep import generate_interview_questions # Check if this is the exact function name!
 from utils.github_scanner import analyze_github_profile
 from utils.github_scanner import analyze_github_profile, generate_dev_scorecard
+from supabase import create_client, Client
 
 # 1. Load environment variables from your .env file
 load_dotenv()
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+# 2. Grab the keys and store them in variables
+supabase_url = os.getenv("SUPABASE_URL")
+supabase_key = os.getenv("SUPABASE_KEY")
 
-# 2. Initialize the Supabase Client
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+# 3. Create the client using those exact variables
+supabase: Client = create_client(supabase_url, supabase_key)
 
 # 3. Initialize the FastAPI App
 app = FastAPI(
@@ -216,7 +218,24 @@ async def evaluate_candidate(
             # Generate the Dev Scorecard using the Gemini AI
             github_data["ai_scorecard"] = generate_dev_scorecard(github_data)
 
-        # 4. COMBINE INTO THE ULTIMATE JSON REPORT
+        # 4. SAVE TO SUPABASE DATABASE
+        try:
+            db_record = {
+                "github_username": github_username,
+                "ats_score": float(match_pct),
+                "semantic_score": float(sem_score),
+                "ai_scorecard": github_data.get("ai_scorecard", "") if github_data else "",
+                "matched_skills": list(matched),
+                "missing_skills": list(missing)
+            }
+            # Insert the record into the table we just created
+            supabase.table("evaluations").insert(db_record).execute()
+        except Exception as db_error:
+            print(f"Database warning: Could not save record. {db_error}")
+            # We print the error but don't crash the API, so the user still gets their result!
+
+        # 5. RETURN THE ULTIMATE JSON REPORT (Your existing return statement goes here)
+
         return {
             "status": "success",
             "candidate_evaluation": {
@@ -277,3 +296,6 @@ async def evaluate_candidate(
         
     except Exception as e:
         return {"status": "error", "message": str(e)}
+    
+
+
