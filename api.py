@@ -4,7 +4,8 @@ from fastapi import FastAPI
 from supabase import create_client, Client
 from pydantic import BaseModel
 from typing import List
-from fastapi import FastAPI, UploadFile, File, Form
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import pdfplumber
 from utils.text_cleaner import clean_text
 from utils.ats_matcher import extract_skills_from_text, match_skills
@@ -33,6 +34,11 @@ app = FastAPI(
     description="The backend engine for the v2.0 Resume Analyzer",
     version="2.0.0"
 )
+
+# --- DATA MODELS ---
+class UserCredentials(BaseModel):
+    email: str
+    password: str
 
 @app.get("/")
 def read_root():
@@ -298,4 +304,74 @@ async def evaluate_candidate(
         return {"status": "error", "message": str(e)}
     
 
+# --- AUTHENTICATION ---
 
+@app.post("/api/signup")
+async def sign_up(credentials: UserCredentials):
+    try:
+        # Send the email and password to Supabase to create the account
+        response = supabase.auth.sign_up({
+            "email": credentials.email,
+            "password": credentials.password
+        })
+        
+        return {
+            "status": "success", 
+            "message": f"User {credentials.email} successfully created!"
+        }
+        
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/login")
+async def log_in(credentials: UserCredentials):
+    try:
+        # Send the email and password to Supabase to verify
+        response = supabase.auth.sign_in_with_password({
+            "email": credentials.email,
+            "password": credentials.password
+        })
+        
+        # If successful, grab the digital VIP wristband (access token)
+        session = response.session
+        if session:
+            return {
+                "status": "success",
+                "message": "Login successful!",
+                "access_token": session.access_token
+            }
+        else:
+            return {"status": "error", "message": "Could not log in. Please check your credentials."}
+            
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    
+
+# --- SECURITY CHECKPOINT ---
+security = HTTPBearer()
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        # Ask Supabase if this token is real and valid
+        user_response = supabase.auth.get_user(token)
+        if not user_response.user:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        
+        # Return the verified user details!
+        return user_response.user
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
+    
+
+# (Your security checkpoint code is up here)
+
+@app.get("/api/me")
+async def get_my_profile(user = Depends(get_current_user)):
+    # If the code reaches here, the bouncer let them in!
+    return {
+        "status": "success",
+        "message": "Welcome to the VIP area!",
+        "user_email": user.email,
+        "user_id": user.id
+    }
