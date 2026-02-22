@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from typing import List
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import FileResponse 
 import pdfplumber
 from utils.text_cleaner import clean_text
 from utils.ats_matcher import extract_skills_from_text, match_skills
@@ -16,7 +17,10 @@ from utils.cover_letter_generator import generate_cover_letter  # Check if this 
 from utils.interview_prep import generate_interview_questions # Check if this is the exact function name!
 from utils.github_scanner import analyze_github_profile
 from utils.github_scanner import analyze_github_profile, generate_dev_scorecard
+from utils.pdf_generator import create_pdf_report
 from supabase import create_client, Client
+
+
 
 # 1. Load environment variables from your .env file
 load_dotenv()
@@ -375,3 +379,25 @@ async def get_my_profile(user = Depends(get_current_user)):
         "user_email": user.email,
         "user_id": user.id
     }
+
+
+# --- PDF GENERATION ---
+
+@app.post("/api/generate-pdf")
+async def generate_pdf(eval_data: dict):
+    try:
+        # 1. Name the temporary file
+        temp_filename = "candidate_report.pdf"
+        
+        # 2. Use your new tool to draw the PDF
+        create_pdf_report(eval_data, temp_filename)
+        
+        # 3. Send the actual file back to the browser!
+        return FileResponse(
+            path=temp_filename, 
+            filename="AI_Developer_Scorecard.pdf", 
+            media_type="application/pdf"
+        )
+        
+    except Exception as e:
+        return {"status": "error", "message": f"Could not generate PDF: {str(e)}"}
