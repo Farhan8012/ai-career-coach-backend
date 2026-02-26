@@ -7,6 +7,7 @@ from typing import List
 from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import FileResponse 
+from fastapi.middleware.cors import CORSMiddleware
 import pdfplumber
 from utils.text_cleaner import clean_text
 from utils.ats_matcher import extract_skills_from_text, match_skills
@@ -38,6 +39,18 @@ app = FastAPI(
     description="The backend engine for the v2.0 Resume Analyzer",
     version="2.0.0"
 )
+
+
+# --- CORS SETUP ---
+# This allows our Next.js frontend (port 3000) to communicate with this backend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"], # Allow requests from this exact URL
+    allow_credentials=True,
+    allow_methods=["*"], # Allow all types of requests (GET, POST, etc.)
+    allow_headers=["*"], # Allow all headers
+)
+
 
 # --- DATA MODELS ---
 class UserCredentials(BaseModel):
