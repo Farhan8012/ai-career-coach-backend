@@ -184,22 +184,41 @@ def api_rewrite_bullet(data: RewriteRequest):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+@app.post("/api/study-plan")
+def api_study_plan(data: StudyPlanRequest):
+    try:
+        # Generate the weekly roadmap based on the missing skills
+        plan = generate_study_plan(data.missing_skills)
+        
+        return {"status": "success", "study_plan": plan}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 # --- GENERATIVE AI ENDPOINTS ---
 
 @app.post("/api/cover-letter")
-def api_cover_letter(data: CoverLetterRequest):
+async def api_cover_letter(
+    job_description: str = Form(...),
+    resume: UploadFile = File(...)
+):
     try:
-        cover_letter = generate_cover_letter(data.resume_text, data.job_description)
-        return {"status": "success", "cover_letter": cover_letter}
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+        # 1. Check if it's a valid PDF
+        if resume.content_type != "application/pdf":
+            return {"status": "error", "message": "Please upload a valid PDF file."}
 
-@app.post("/api/study-plan")
-def api_study_plan(data: StudyPlanRequest):
-    try:
-        plan = generate_study_plan(data.missing_skills)
-        return {"status": "success", "study_plan": plan}
+        # 2. Read the text out of the PDF
+        text = ""
+        with pdfplumber.open(resume.file) as pdf:
+            for page in pdf.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+
+        # 3. Send the extracted text and job description to your LLM generator
+        cover_letter = generate_cover_letter(text, job_description)
+        
+        return {"status": "success", "cover_letter": cover_letter}
+        
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
@@ -299,26 +318,7 @@ def api_get_github_profile(username: str):
 
 # --- THE MASTER ENDPOINT ---
 
-@app.post("/api/evaluate-candidate")
-async def evaluate_candidate(
-    github_username: str = Form(...),
-    job_description: str = Form(...),
-    resume: UploadFile = File(...)
-):
-    try:
-        # 1. We will run the Resume Analysis here
-        
-        # 2. We will run the GitHub Analysis here
-        
-        # 3. We will combine them and return the final report
-        
-        return {
-            "status": "success",
-            "message": f"Successfully received data for {github_username}. Ready to combine!"
-        }
-        
-    except Exception as e:
-        return {"status": "error", "message": str(e)}
+
     
 
 # --- AUTHENTICATION ---
