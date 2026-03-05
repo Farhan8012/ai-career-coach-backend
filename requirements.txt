@@ -5,3 +5,4 @@ supabase
 python-multipart
 PyPDF2
 python-dotenv
+pdfplumber
