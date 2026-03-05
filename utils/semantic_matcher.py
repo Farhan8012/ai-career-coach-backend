@@ -1,30 +1,28 @@
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+import re
 
-def calculate_semantic_match(resume_text, jd_text):
+def calculate_semantic_match(resume_text: str, job_description: str) -> int:
     """
-    Calculates the semantic similarity between resume and JD using TF-IDF and Cosine Similarity.
-    This is an international-standard approach for basic NLP matching.
+    A lightweight, pure-Python Jaccard Similarity algorithm to replace scikit-learn.
+    Compares the overlap of words between the resume and the job description.
     """
-    if not resume_text.strip() or not jd_text.strip():
-        return 0.0
+    def get_words(text):
+        # Convert to lowercase and extract only alphanumeric words
+        words = re.findall(r'\w+', str(text).lower())
+        return set(words)
 
-    # 1. Combine texts into a list for the vectorizer
-    documents = [resume_text, jd_text]
+    resume_words = get_words(resume_text)
+    job_words = get_words(job_description)
+
+    if not job_words:
+        return 0
+
+    # Calculate Jaccard Similarity: (Intersection / Union) * 100
+    intersection = resume_words.intersection(job_words)
+    union = resume_words.union(job_words)
+
+    score = (len(intersection) / len(union)) * 100 if union else 0
     
-    # 2. Initialize TF-IDF Vectorizer (removes common English stop words)
-    vectorizer = TfidfVectorizer(stop_words='english')
+    # Boost the score slightly since strict word-matching is tough
+    adjusted_score = min(int(score * 1.5), 100)
     
-    try:
-        # 3. Transform text into mathematical vectors
-        tfidf_matrix = vectorizer.fit_transform(documents)
-        
-        # 4. Calculate Cosine Similarity (the 'angle' between the two vectors)
-        # tfidf_matrix[0:1] is the Resume; tfidf_matrix[1:2] is the JD
-        match_score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][0]
-        
-        # 5. Return as a rounded percentage
-        return round(float(match_score * 100), 2)
-    except Exception:
-        # Returns 0 if vectors cannot be compared (e.g., empty or non-informative text)
-        return 0.0
+    return adjusted_score
