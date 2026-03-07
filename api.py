@@ -42,15 +42,16 @@ app = FastAPI(
 
 
 # --- CORS SETUP ---
-# This allows our Next.js frontend (port 3000) to communicate with this backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"], # Allow requests from this exact URL
+    allow_origins=[
+        "http://localhost:3000", 
+        "https://ai-career-coach-frontend-peach.vercel.app"
+    ], 
     allow_credentials=True,
-    allow_methods=["*"], # Allow all types of requests (GET, POST, etc.)
-    allow_headers=["*"], # Allow all headers
+    allow_methods=["*"], 
+    allow_headers=["*"], 
 )
-
 
 # --- DATA MODELS ---
 class UserCredentials(BaseModel):
