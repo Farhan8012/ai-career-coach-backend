@@ -20,6 +20,7 @@ from utils.github_scanner import analyze_github_profile
 from utils.github_scanner import analyze_github_profile, generate_dev_scorecard
 from utils.pdf_generator import create_pdf_report
 from supabase import create_client, Client
+from utils.dsa_interviewer import generate_dsa_question, evaluate_dsa_answer
 
 
 
@@ -57,6 +58,10 @@ app.add_middleware(
 class UserCredentials(BaseModel):
     email: str
     password: str
+
+class DSAEvalRequest(BaseModel):
+    question: str
+    user_code: str
 
 @app.get("/")
 def read_root():
@@ -415,3 +420,32 @@ async def generate_pdf(eval_data: dict):
         
     except Exception as e:
         return {"status": "error", "message": f"Could not generate PDF: {str(e)}"}
+    
+
+    # --- DSA INTERVIEW ENDPOINTS ---
+
+@app.post("/api/dsa-question")
+async def api_dsa_question(resume: UploadFile = File(...)):
+    try:
+        if resume.content_type != "application/pdf":
+            return {"status": "error", "message": "Please upload a valid PDF."}
+
+        text = ""
+        with pdfplumber.open(resume.file) as pdf:
+            for page in pdf.pages:
+                extracted = page.extract_text()
+                if extracted:
+                    text += extracted + "\n"
+        
+        result = generate_dsa_question(text)
+        return {"status": "success", "data": result}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/dsa-evaluate")
+def api_dsa_evaluate(data: DSAEvalRequest):
+    try:
+        feedback = evaluate_dsa_answer(data.question, data.user_code)
+        return {"status": "success", "feedback": feedback}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
