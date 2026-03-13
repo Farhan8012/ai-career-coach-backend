@@ -9,76 +9,77 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-def analyze_github_profile(username: str):
-    """Fetches a user's GitHub profile, repos, and calculates language stats."""
-    
-    # We use the token so GitHub doesn't block us for making too many requests
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"} if GITHUB_TOKEN else {}
-    
+def get_github_metrics(username: str):
+    """Fetches advanced GitHub metrics for the developer scorecard."""
+    headers = {}
+    token = os.getenv("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+        
     try:
-        # 1. Fetch Basic Profile Info
-        user_url = f"https://api.github.com/users/{username}"
-        user_response = requests.get(user_url, headers=headers)
+        # Fetch up to 100 public repositories
+        response = requests.get(f"https://api.github.com/users/{username}/repos?per_page=100", headers=headers)
         
-        if user_response.status_code != 200:
-            return {"status": "error", "message": f"Could not find GitHub user: {username}"}
+        if response.status_code != 200:
+            return {"public_repos": 0, "total_stars": 0, "total_forks": 0, "top_languages": {}}
             
-        user_data = user_response.json()
+        repos = response.json()
         
-        # 2. Fetch User's Repositories
-        repos_url = f"https://api.github.com/users/{username}/repos?per_page=100&sort=updated"
-        repos_response = requests.get(repos_url, headers=headers)
-        repos_data = repos_response.json() if repos_response.status_code == 200 else []
+        # Calculate the new metrics!
+        total_stars = sum(repo.get("stargazers_count", 0) for repo in repos)
+        total_forks = sum(repo.get("forks_count", 0) for repo in repos)
         
-        # 3. Calculate Stats (Stars and Languages)
         languages = {}
-        total_stars = 0
+        repo_names = []
         
-        for repo in repos_data:
-            # Add up the stars
-            total_stars += repo.get("stargazers_count", 0)
+        for repo in repos:
+            # Save the repo names so we can feed them to Gemini later
+            repo_names.append(repo.get("name", ""))
             
-            # Count the programming languages used
+            # Tally up the languages
             lang = repo.get("language")
             if lang:
                 languages[lang] = languages.get(lang, 0) + 1
                 
         return {
-            "status": "success",
-            "data": {
-                "username": username,
-                "name": user_data.get("name") or username,
-                "bio": user_data.get("bio"),
-                "public_repos": user_data.get("public_repos"),
-                "total_stars": total_stars,
-                "top_languages": languages
-            }
+            "public_repos": len(repos),
+            "total_stars": total_stars,
+            "total_forks": total_forks,
+            "top_languages": languages,
+            "repo_names": repo_names[:15] # Keep the top 15 for the AI context
         }
-
+        
     except Exception as e:
-        return {"status": "error", "message": str(e)}
+        print(f"GitHub Fetch Error: {e}")
+        return {"public_repos": 0, "total_stars": 0, "total_forks": 0, "top_languages": {}}
     
 
-
 def generate_dev_scorecard(github_stats: dict):
-    """Passes GitHub stats to Gemini to generate a developer evaluation."""
+    """Uses advanced GitHub stats to ask Gemini to generate a developer evaluation."""
     try:
         model = genai.GenerativeModel('gemini-2.5-flash')
         
+        # Format languages nicely for the AI
+        langs = github_stats.get("top_languages", {})
+        lang_str = ", ".join([f"{k} ({v})" for k, v in langs.items()]) if langs else "None"
+        repos_str = ", ".join(github_stats.get("repo_names", []))
+        
         prompt = f"""
-        You are an expert Technical Recruiter evaluating a candidate's GitHub profile.
-        Here is the raw data:
-        - Username: {github_stats.get('username')}
-        - Total Repos: {github_stats.get('public_repos')}
-        - Total Stars Earned: {github_stats.get('total_stars')}
-        - Top Languages Used: {github_stats.get('top_languages')}
+        Act as an expert Senior Engineering Manager. 
+        Write a 2-sentence "Developer Persona" summary for this candidate based on their GitHub data.
+        Make it sound highly professional, impressive, and tailored exactly to their tech stack.
         
-        Task: Write a short, punchy, 3-sentence "Developer Score Card" summary. 
-        Highlight their primary tech stack and overall open-source activity. Keep it professional and encouraging.
+        GitHub Stats:
+        - Public Repos: {github_stats.get("public_repos")}
+        - Total Stars: {github_stats.get("total_stars")}
+        - Total Forks: {github_stats.get("total_forks")}
+        - Top Languages: {lang_str}
+        - Key Repositories: {repos_str}
+        
+        Do not use formatting like bolding or bullet points. Just write the short paragraph.
         """
-        
         response = model.generate_content(prompt)
-        return response.text
-        
+        return response.text.strip()
     except Exception as e:
-        return f"Could not generate AI scorecard: {str(e)}"
+        print(f"Gemini Error: {e}")
+        return "An active developer consistently building projects and contributing to the open-source community."
