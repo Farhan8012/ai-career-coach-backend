@@ -83,3 +83,8 @@ def generate_dev_scorecard(github_stats: dict):
     except Exception as e:
         print(f"Gemini Error: {e}")
         return "An active developer consistently building projects and contributing to the open-source community."
+    
+
+def analyze_github_profile(username: str):
+    """Wrapper function to connect the old api.py to our new upgraded metrics."""
+    return get_github_metrics(username)
