@@ -10,7 +10,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def get_github_metrics(username: str):
-    """Fetches advanced GitHub metrics for the developer scorecard."""
+    """Fetches advanced GitHub metrics AND detailed repository data for the UI."""
     headers = {}
     token = os.getenv("GITHUB_TOKEN")
     if token:
@@ -21,37 +21,50 @@ def get_github_metrics(username: str):
         response = requests.get(f"https://api.github.com/users/{username}/repos?per_page=100", headers=headers)
         
         if response.status_code != 200:
-            return {"public_repos": 0, "total_stars": 0, "total_forks": 0, "top_languages": {}}
+            return {"public_repos": 0, "total_stars": 0, "total_forks": 0, "top_languages": {}, "repositories": []}
             
         repos = response.json()
         
-        # Calculate the new metrics!
+        # Calculate the aggregate metrics
         total_stars = sum(repo.get("stargazers_count", 0) for repo in repos)
         total_forks = sum(repo.get("forks_count", 0) for repo in repos)
         
         languages = {}
         repo_names = []
+        detailed_repos = []
         
         for repo in repos:
-            # Save the repo names so we can feed them to Gemini later
             repo_names.append(repo.get("name", ""))
             
             # Tally up the languages
             lang = repo.get("language")
             if lang:
                 languages[lang] = languages.get(lang, 0) + 1
+            
+            # Grab the specific details for the Frontend UI Grid
+            detailed_repos.append({
+                "name": repo.get("name", "Unnamed Repo"),
+                "description": repo.get("description") or "No description provided.",
+                "url": repo.get("html_url", "#"),
+                "stars": repo.get("stargazers_count", 0),
+                "language": lang or "Mixed"
+            })
+                
+        # Sort the detailed repos by Stars (highest first), so the best ones show up in the UI
+        detailed_repos = sorted(detailed_repos, key=lambda x: x['stars'], reverse=True)
                 
         return {
             "public_repos": len(repos),
             "total_stars": total_stars,
             "total_forks": total_forks,
             "top_languages": languages,
-            "repo_names": repo_names[:15] # Keep the top 15 for the AI context
+            "repo_names": repo_names[:15], # Keep top 15 names for the Gemini AI Prompt
+            "repositories": detailed_repos[:6] # Send the top 6 fully-detailed repos to the Frontend UI
         }
         
     except Exception as e:
         print(f"GitHub Fetch Error: {e}")
-        return {"public_repos": 0, "total_stars": 0, "total_forks": 0, "top_languages": {}}
+        return {"public_repos": 0, "total_stars": 0, "total_forks": 0, "top_languages": {}, "repositories": []}
     
 
 def generate_dev_scorecard(github_stats: dict):
