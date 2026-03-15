@@ -291,6 +291,7 @@ async def sign_up(credentials: UserSignUp):
         if response.user:
             supabase.table("profiles").upsert({
                 "id": response.user.id,
+                "email": credentials.email,
                 "first_name": credentials.first_name,
                 "last_name": credentials.last_name,
                 "target_role": credentials.target_role
