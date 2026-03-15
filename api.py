@@ -20,17 +20,13 @@ from utils.github_scanner import analyze_github_profile, generate_dev_scorecard
 from utils.pdf_generator import create_pdf_report
 from utils.dsa_interviewer import generate_dsa_question, evaluate_dsa_answer
 
-# 1. Load environment variables from your .env file
+# 1. Load environment variables
 load_dotenv()
-
-# 2. Grab the keys and store them in variables
 supabase_url = os.getenv("SUPABASE_URL")
 supabase_key = os.getenv("SUPABASE_KEY")
-
-# 3. Create the client using those exact variables
 supabase: Client = create_client(supabase_url, supabase_key)
 
-# 4. Initialize the FastAPI App
+# 2. Initialize App
 app = FastAPI(
     title="AI Career Coach API",
     description="The backend engine for the v2.0 Resume Analyzer",
@@ -53,6 +49,14 @@ app.add_middleware(
 class UserCredentials(BaseModel):
     email: str
     password: str
+
+# BRAND NEW: Sign Up model includes Profile Data
+class UserSignUp(BaseModel):
+    email: str
+    password: str
+    first_name: str
+    last_name: str
+    target_role: str
 
 class DSAEvalRequest(BaseModel):
     question: str
@@ -204,7 +208,6 @@ async def evaluate_candidate(
     resume: UploadFile = File(...)
 ):
     try:
-        # 1. READ THE RESUME PDF
         if resume.content_type != "application/pdf":
             return {"status": "error", "message": "Please upload a valid PDF file."}
 
@@ -215,7 +218,6 @@ async def evaluate_candidate(
                 if extracted:
                     text += extracted + "\n"
 
-        # 2. RUN RESUME ANALYSIS
         cleaned_text = clean_text(text)
         resume_skills = extract_skills_from_text(cleaned_text)
         jd_clean = job_description.lower()
@@ -224,17 +226,13 @@ async def evaluate_candidate(
         match_pct, matched, missing = match_skills(resume_skills, jd_skills)
         sem_score = calculate_semantic_match(cleaned_text, jd_clean)
 
-        # 3. RUN GITHUB ANALYSIS (FIXED)
         github_data = analyze_github_profile(github_username)
         
-        # Check if we got real data back from the scanner
         if github_data and isinstance(github_data, dict) and "public_repos" in github_data:
-            # Generate the Dev Scorecard using Gemini AI
             github_data["ai_scorecard"] = generate_dev_scorecard(github_data)
         else:
             github_data = {"public_repos": 0, "total_stars": 0, "total_forks": 0, "top_languages": {}, "ai_scorecard": "No GitHub data found."}
 
-        # 4. SAVE TO SUPABASE DATABASE
         try:
             db_record = {
                 "github_username": github_username,
@@ -248,7 +246,6 @@ async def evaluate_candidate(
         except Exception as db_error:
             print(f"Database warning: Could not save record. {db_error}")
 
-        # 5. RETURN THE ULTIMATE JSON REPORT
         return {
             "status": "success",
             "candidate_evaluation": {
@@ -265,8 +262,6 @@ async def evaluate_candidate(
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# --- GITHUB INTEGRATION ---
-
 @app.get("/api/github/{username}")
 def api_get_github_profile(username: str):
     try:
@@ -281,18 +276,29 @@ def api_get_github_profile(username: str):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# --- AUTHENTICATION ---
+# --- AUTHENTICATION & PROFILE FLOW ---
 
 @app.post("/api/signup")
-async def sign_up(credentials: UserCredentials):
+async def sign_up(credentials: UserSignUp):
     try:
+        # 1. Create the secure user in Supabase Auth
         response = supabase.auth.sign_up({
             "email": credentials.email,
             "password": credentials.password
         })
+        
+        # 2. If successful, save their profile data to the table we just upgraded!
+        if response.user:
+            supabase.table("profiles").upsert({
+                "id": response.user.id,
+                "first_name": credentials.first_name,
+                "last_name": credentials.last_name,
+                "target_role": credentials.target_role
+            }).execute()
+            
         return {
             "status": "success", 
-            "message": f"User {credentials.email} successfully created!"
+            "message": f"Welcome aboard, {credentials.first_name}! 🎉"
         }
     except Exception as e:
         return {"status": "error", "message": str(e)}
@@ -333,15 +339,23 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 @app.get("/api/me")
 async def get_my_profile(user = Depends(get_current_user)):
-    return {
-        "status": "success",
-        "message": "Welcome to the VIP area!",
-        "user_email": user.email,
-        "user_id": user.id
-    }
+    try:
+        # 1. Fetch the user's custom profile data from our table
+        profile_response = supabase.table("profiles").select("*").eq("id", user.id).execute()
+        profile_data = profile_response.data[0] if profile_response.data else {}
+
+        # 2. Return everything to the frontend
+        return {
+            "status": "success",
+            "user_email": user.email,
+            "first_name": profile_data.get("first_name", "Developer"),
+            "last_name": profile_data.get("last_name", ""),
+            "target_role": profile_data.get("target_role", "Software Engineer")
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 # --- PDF GENERATION ---
-
 @app.post("/api/generate-pdf")
 async def generate_pdf(eval_data: dict):
     try:
@@ -356,7 +370,6 @@ async def generate_pdf(eval_data: dict):
         return {"status": "error", "message": f"Could not generate PDF: {str(e)}"}
 
 # --- DSA INTERVIEW ENDPOINTS ---
-
 @app.post("/api/dsa-question")
 async def api_dsa_question(resume: UploadFile = File(...)):
     try:
