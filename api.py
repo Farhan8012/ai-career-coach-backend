@@ -50,7 +50,6 @@ class UserCredentials(BaseModel):
     email: str
     password: str
 
-# BRAND NEW: Sign Up model includes Profile Data
 class UserSignUp(BaseModel):
     email: str
     password: str
@@ -82,6 +81,28 @@ class InterviewPrepRequest(BaseModel):
     resume_text: str
     job_role: str
 
+# BRAND NEW: Kanban Board Data Models
+class JobApplicationCreate(BaseModel):
+    company_name: str
+    job_title: str
+    match_score: float
+
+class JobApplicationUpdate(BaseModel):
+    status: str
+
+# --- SECURITY CHECKPOINT ---
+security = HTTPBearer()
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        user_response = supabase.auth.get_user(token)
+        if not user_response.user:
+            raise HTTPException(status_code=401, detail="Invalid or expired token")
+        return user_response.user
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the AI Career Coach API v2.0! 🚀", "status": "Online"}
@@ -93,6 +114,40 @@ def test_database_connection():
             return {"status": "Success", "message": "Successfully connected to Supabase PostgreSQL! 🎉"}
     except Exception as e:
         return {"status": "Error", "message": str(e)}
+
+# --- KANBAN BOARD ROUTES ---
+
+@app.post("/api/applications")
+async def create_application(app_data: JobApplicationCreate, user = Depends(get_current_user)):
+    try:
+        response = supabase.table("job_applications").insert({
+            "user_id": user.id,
+            "company_name": app_data.company_name,
+            "job_title": app_data.job_title,
+            "match_score": app_data.match_score,
+            "status": "Saved"
+        }).execute()
+        return {"status": "success", "data": response.data}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.get("/api/applications")
+async def get_applications(user = Depends(get_current_user)):
+    try:
+        response = supabase.table("job_applications").select("*").eq("user_id", user.id).order("created_at", desc=True).execute()
+        return {"status": "success", "data": response.data}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.patch("/api/applications/{app_id}")
+async def update_application_status(app_id: str, update_data: JobApplicationUpdate, user = Depends(get_current_user)):
+    try:
+        # We ensure the user can only update THEIR OWN applications by checking user.id
+        response = supabase.table("job_applications").update({"status": update_data.status}).eq("id", app_id).eq("user_id", user.id).execute()
+        return {"status": "success", "data": response.data}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 
 # --- ROUTES ---
 
@@ -281,13 +336,11 @@ def api_get_github_profile(username: str):
 @app.post("/api/signup")
 async def sign_up(credentials: UserSignUp):
     try:
-        # 1. Create the secure user in Supabase Auth
         response = supabase.auth.sign_up({
             "email": credentials.email,
             "password": credentials.password
         })
         
-        # 2. If successful, save their profile data to the table we just upgraded!
         if response.user:
             supabase.table("profiles").upsert({
                 "id": response.user.id,
@@ -325,27 +378,12 @@ async def log_in(credentials: UserCredentials):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# --- SECURITY CHECKPOINT ---
-security = HTTPBearer()
-
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    try:
-        user_response = supabase.auth.get_user(token)
-        if not user_response.user:
-            raise HTTPException(status_code=401, detail="Invalid or expired token")
-        return user_response.user
-    except Exception as e:
-        raise HTTPException(status_code=401, detail=f"Authentication failed: {str(e)}")
-
 @app.get("/api/me")
 async def get_my_profile(user = Depends(get_current_user)):
     try:
-        # 1. Fetch the user's custom profile data from our table
         profile_response = supabase.table("profiles").select("*").eq("id", user.id).execute()
         profile_data = profile_response.data[0] if profile_response.data else {}
 
-        # 2. Return everything to the frontend
         return {
             "status": "success",
             "user_email": user.email,
