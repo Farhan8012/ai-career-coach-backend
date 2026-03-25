@@ -18,7 +18,7 @@ from utils.cover_letter_generator import generate_cover_letter
 from utils.interview_prep import generate_interview_questions 
 from utils.github_scanner import analyze_github_profile, generate_dev_scorecard
 from utils.pdf_generator import create_pdf_report
-from utils.dsa_interviewer import generate_dsa_question, evaluate_dsa_answer
+from utils.dsa_interviewer import generate_dsa_question, evaluate_dsa_answer, get_dsa_hint
 
 # 1. Load environment variables
 load_dotenv()
@@ -49,6 +49,9 @@ app.add_middleware(
 class UserCredentials(BaseModel):
     email: str
     password: str
+
+class DSAHintRequest(BaseModel):
+    question: str
 
 class UserSignUp(BaseModel):
     email: str
@@ -432,5 +435,13 @@ def api_dsa_evaluate(data: DSAEvalRequest):
     try:
         feedback = evaluate_dsa_answer(data.question, data.user_code)
         return {"status": "success", "feedback": feedback}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    
+@app.post("/api/dsa-hint")
+def api_dsa_hint(data: DSAHintRequest):
+    try:
+        hint = get_dsa_hint(data.question)
+        return {"status": "success", "hint": hint}
     except Exception as e:
         return {"status": "error", "message": str(e)}
