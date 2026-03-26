@@ -8,7 +8,7 @@ def setup_gemini():
         print("Warning: GOOGLE_API_KEY not found in environment variables.")
         return None
     genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-1.5-flash')
+    return genai.GenerativeModel('gemini-2.5-flash')
 
 def generate_dsa_question(resume_text: str):
     model = setup_gemini()
