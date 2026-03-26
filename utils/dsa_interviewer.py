@@ -2,12 +2,12 @@ import os
 import google.generativeai as genai
 
 def setup_gemini():
-    api_key = os.getenv("GEMINI_API_KEY")
+    # Changed this line to match your .env file!
+    api_key = os.getenv("GOOGLE_API_KEY") 
     if not api_key:
-        print("Warning: GEMINI_API_KEY not found in environment variables.")
+        print("Warning: GOOGLE_API_KEY not found in environment variables.")
         return None
     genai.configure(api_key=api_key)
-    # Using the standard model for quick text generation
     return genai.GenerativeModel('gemini-1.5-flash')
 
 def generate_dsa_question(resume_text: str):
