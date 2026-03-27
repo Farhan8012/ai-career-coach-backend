@@ -52,18 +52,22 @@ def evaluate_dsa_answer(question: str, user_code: str):
     except Exception as e:
         return f"Error evaluating code: {str(e)}"
 
-# BRAND NEW: The Hint Generator
+# BRAND NEW: The Senior Dev Hint Generator
 def get_dsa_hint(question: str):
-    model = setup_gemini()
+    # Keep your existing setup_gemini() exactly as you have it!
+    model = setup_gemini() 
     if not model:
         return "Error: Gemini API key not configured."
         
     prompt = f"""
-    The candidate is struggling with this DSA question:
+    You are an empathetic Senior Software Engineer mentoring a junior developer. 
+    They are stuck on this DSA question:
     {question}
     
-    Provide a single, short conceptual hint (max 2 sentences) to point them in the right direction. 
-    STRICT RULE: Do NOT write any code. Do NOT give away the exact solution.
+    Provide ONE actionable, concrete hint (max 2 sentences). 
+    Suggest a specific data structure (e.g., "Try using a Hash Map to track complements") or a specific algorithmic pattern (e.g., "A two-pointer approach starting from both ends might work here").
+    
+    STRICT RULE: Do NOT write the actual code. Do NOT ask cryptic, philosophical questions. Be direct, technical, and helpful.
     """
     try:
         response = model.generate_content(prompt)
