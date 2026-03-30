@@ -445,9 +445,9 @@ async def api_dsa_question(resume: UploadFile = File(...)):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-@app.post("/api/dsa-evaluate")
+@app.post("/your-endpoint-path") # (Whatever your path is)
 @limiter.limit("10/minute")
-def api_dsa_evaluate(data: DSAEvalRequest):
+async def api_dsa_evaluate(request: Request, ...):
     
     try:
         feedback = evaluate_dsa_answer(data.question, data.user_code)
