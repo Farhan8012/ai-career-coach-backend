@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Request
 from supabase import create_client, Client
 from pydantic import BaseModel
 from typing import List
@@ -23,7 +23,6 @@ from utils.dsa_interviewer import generate_dsa_question, evaluate_dsa_answer, ge
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-from fastapi import Request
 
 # 1. Load environment variables
 load_dotenv()
@@ -37,26 +36,20 @@ app = FastAPI(
     description="The backend engine for the v2.0 Resume Analyzer",
     version="2.0.0"
 )
-# --- CORS SETUP ---
+
+# --- BULLETPROOF CORS SETUP ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000", 
-        "https://ai-career-coach-frontend-peach.vercel.app"
-    ], 
-    allow_credentials=True,
+    allow_origins=["*"], # Open to all during testing
+    allow_credentials=False, # MUST be false when origins is "*"
     allow_methods=["*"], 
     allow_headers=["*"], 
 )
 
-# BRAND NEW: Initialize the Rate Limiter
+# 3. Initialize the Rate Limiter
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-
-
-
 
 # --- DATA MODELS ---
 class UserCredentials(BaseModel):
@@ -97,7 +90,6 @@ class InterviewPrepRequest(BaseModel):
     resume_text: str
     job_role: str
 
-# BRAND NEW: Kanban Board Data Models
 class JobApplicationCreate(BaseModel):
     company_name: str
     job_title: str
@@ -158,7 +150,6 @@ async def get_applications(user = Depends(get_current_user)):
 @app.patch("/api/applications/{app_id}")
 async def update_application_status(app_id: str, update_data: JobApplicationUpdate, user = Depends(get_current_user)):
     try:
-        # We ensure the user can only update THEIR OWN applications by checking user.id
         response = supabase.table("job_applications").update({"status": update_data.status}).eq("id", app_id).eq("user_id", user.id).execute()
         return {"status": "success", "data": response.data}
     except Exception as e:
@@ -273,14 +264,13 @@ async def api_cover_letter(
 # --- THE MASTER ENDPOINT ---
 
 @app.post("/api/evaluate-candidate")
-@limiter.limit("5/minute") # Protect this route! Max 5 requests per minute per IP.
+@limiter.limit("5/minute") 
 async def evaluate_candidate(
-    request: Request, # <-- MUST ADD THIS!
+    request: Request, 
     github_username: str = Form(...),
     job_description: str = Form(...),
     resume: UploadFile = File(...)
 ):
-    # ... rest of your existing code stays exactly the same! ...
     try:
         if resume.content_type != "application/pdf":
             return {"status": "error", "message": "Please upload a valid PDF file."}
@@ -446,12 +436,12 @@ async def api_dsa_question(resume: UploadFile = File(...)):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-@app.post("/api/evaluate-candidate") # Fixed the path!
+# FIX: Renamed this endpoint so it doesn't fight with the master evaluation endpoint!
+@app.post("/api/dsa-evaluate") 
 @limiter.limit("10/minute")
-async def api_dsa_evaluate(request: Request, data: Any): # Replace 'Any' with your actual Pydantic model name (e.g., DSAEvaluateRequest)
+async def api_dsa_evaluate(request: Request, data: DSAEvalRequest): # FIX: Uses your actual data model now
     try:
         feedback = evaluate_dsa_answer(data.question, data.user_code)
-        # ... rest of your code stays the same
         return {"status": "success", "feedback": feedback}
     except Exception as e:
         return {"status": "error", "message": str(e)}
