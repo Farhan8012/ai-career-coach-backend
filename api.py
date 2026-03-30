@@ -447,7 +447,7 @@ async def api_dsa_question(resume: UploadFile = File(...)):
 
 @app.post("/your-endpoint-path") # (Whatever your path is)
 @limiter.limit("10/minute")
-async def api_dsa_evaluate(request: Request, ...):
+async def api_dsa_evaluate(request: Request, data: YourDataModel):
     
     try:
         feedback = evaluate_dsa_answer(data.question, data.user_code)
