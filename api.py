@@ -37,27 +37,6 @@ app = FastAPI(
     description="The backend engine for the v2.0 Resume Analyzer",
     version="2.0.0"
 )
-origins = [
-    "http://localhost:3000", # Keeps your local development working
-    "https://ai-career-coach-frontend-peach.vercel.app", # YOUR LIVE FRONTEND
-]
-
-# 3. Add the middleware to your app
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # The star means "Allow EVERY website"
-    allow_credentials=False, # This MUST be False when using the star
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# BRAND NEW: Initialize the Rate Limiter
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-# ... (keep your CORS setup here) ...
-
 # --- CORS SETUP ---
 app.add_middleware(
     CORSMiddleware,
@@ -69,6 +48,15 @@ app.add_middleware(
     allow_methods=["*"], 
     allow_headers=["*"], 
 )
+
+# BRAND NEW: Initialize the Rate Limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+
+
 
 # --- DATA MODELS ---
 class UserCredentials(BaseModel):
