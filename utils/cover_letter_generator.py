@@ -1,19 +1,15 @@
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
-
+client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def generate_cover_letter(resume_text, jd_text, company_name="Hiring Manager"):
     """
     Generates a personalized cover letter connecting resume projects to JD requirements.
     """
     try:
-        # You can use 'gemini-2.5-flash' or 'gemini-pro'
-        model = genai.GenerativeModel('gemini-2.5-flash')
-
         prompt = f"""
         You are an expert Career Coach and Professional Copywriter.
         Write a convincing Cover Letter for a candidate applying to this job.
@@ -37,7 +33,10 @@ def generate_cover_letter(resume_text, jd_text, company_name="Hiring Manager"):
         Output only the body of the letter.
         """
 
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
         return response.text
 
     except Exception as e:

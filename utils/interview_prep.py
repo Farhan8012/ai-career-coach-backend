@@ -1,18 +1,17 @@
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
+# Initialize the new client
+client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def generate_interview_questions(resume_text, jd_text):
     """
     Generates 5 custom interview questions based on the candidate's specific experience.
     """
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
-
         prompt = f"""
         You are an expert Technical Interviewer. 
         I am going to give you a candidate's Resume and a Job Description.
@@ -35,7 +34,11 @@ def generate_interview_questions(resume_text, jd_text):
         Return exactly 5 questions, numbered 1 to 5.
         """
 
-        response = model.generate_content(prompt)
+        # New SDK syntax for generating content
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
         return response.text
 
     except Exception as e:

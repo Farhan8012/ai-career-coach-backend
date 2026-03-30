@@ -1,5 +1,5 @@
 import os
-import google.generativeai as genai
+from google import genai
 
 def setup_gemini():
     # Changed this line to match your .env file!
@@ -7,12 +7,12 @@ def setup_gemini():
     if not api_key:
         print("Warning: GOOGLE_API_KEY not found in environment variables.")
         return None
-    genai.configure(api_key=api_key)
-    return genai.GenerativeModel('gemini-2.5-flash')
+    # Initialize the new Client instead of configuring the old module
+    return genai.Client(api_key=api_key)
 
 def generate_dsa_question(resume_text: str):
-    model = setup_gemini()
-    if not model:
+    client = setup_gemini()
+    if not client:
         return "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.\n\nYou may assume that each input would have exactly one solution, and you may not use the same element twice.\n\nExample:\nInput: nums = [2,7,11,15], target = 9\nOutput: [0,1]"
         
     prompt = f"""
@@ -23,14 +23,18 @@ def generate_dsa_question(resume_text: str):
     {resume_text}
     """
     try:
-        response = model.generate_content(prompt)
+        # New SDK syntax
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
         return response.text
     except Exception as e:
         return f"Error generating question: {str(e)}"
 
 def evaluate_dsa_answer(question: str, user_code: str):
-    model = setup_gemini()
-    if not model:
+    client = setup_gemini()
+    if not client:
         return "Error: Gemini API key not configured."
         
     prompt = f"""
@@ -47,16 +51,19 @@ def evaluate_dsa_answer(question: str, user_code: str):
     STRICT RULE: Do NOT write long paragraphs or essays. Keep it punchy, professional, and short.
     """
     try:
-        response = model.generate_content(prompt)
+        # New SDK syntax
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
         return response.text
     except Exception as e:
         return f"Error evaluating code: {str(e)}"
 
 # BRAND NEW: The Senior Dev Hint Generator
 def get_dsa_hint(question: str):
-    # Keep your existing setup_gemini() exactly as you have it!
-    model = setup_gemini() 
-    if not model:
+    client = setup_gemini() 
+    if not client:
         return "Error: Gemini API key not configured."
         
     prompt = f"""
@@ -70,7 +77,11 @@ def get_dsa_hint(question: str):
     STRICT RULE: Do NOT write the actual code. Do NOT ask cryptic, philosophical questions. Be direct, technical, and helpful.
     """
     try:
-        response = model.generate_content(prompt)
+        # New SDK syntax
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
         return response.text
     except Exception as e:
         return f"Error generating hint: {str(e)}"

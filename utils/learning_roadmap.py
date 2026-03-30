@@ -1,18 +1,17 @@
 import os
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
 
 load_dotenv()
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+
+# Initialize the new client
+client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def generate_study_plan(missing_skills):
     """
     Generates a 5-day crash course for the identified missing skills.
     """
     try:
-        # Using the Flash model as it's faster for generating long lists
-        model = genai.GenerativeModel('gemini-2.5-flash')
-
         skills_text = ", ".join(missing_skills)
 
         prompt = f"""
@@ -30,7 +29,11 @@ def generate_study_plan(missing_skills):
         Keep it concise, actionable, and encouraging.
         """
 
-        response = model.generate_content(prompt)
+        # New SDK syntax for generating content
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
         return response.text
 
     except Exception as e:

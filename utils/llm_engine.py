@@ -1,4 +1,4 @@
-import google.generativeai as genai
+from google import genai
 import streamlit as st
 import os
 
@@ -7,20 +7,21 @@ try:
 except:
     api_key = os.getenv("GOOGLE_API_KEY")
 
+# Initialize the new client if the key exists
+client = None
 if api_key:
-    genai.configure(api_key=api_key)
+    client = genai.Client(api_key=api_key)
 
 def get_ai_feedback(resume_text, jd_text, missing_skills):
     """
     Asks Gemini to provide actionable advice on HOW to fill the missing gaps.
     """
-    if not api_key:
+    if not client:
         return "⚠️ Google API Key not found. Please check your secrets.toml file."
 
     # Create a focused prompt
     missing_str = ", ".join(missing_skills) if missing_skills else "None"
     
-    # --- THIS IS THE NEW DAY 14 PROMPT ---
     prompt = f"""
     Act as a Senior Technical Recruiter and Career Coach. 
     I have a candidate's resume and a job description.
@@ -41,9 +42,10 @@ def get_ai_feedback(resume_text, jd_text, missing_skills):
     """
     
     try:
-        # --- WE KEEP YOUR WORKING MODEL HERE ---
-        model = genai.GenerativeModel('gemini-flash-latest')
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt
+        )
         return response.text
     except Exception as e:
         return f"Error generating advice: {str(e)}"
