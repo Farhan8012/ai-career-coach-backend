@@ -37,6 +37,19 @@ app = FastAPI(
     description="The backend engine for the v2.0 Resume Analyzer",
     version="2.0.0"
 )
+origins = [
+    "http://localhost:3000", # Keeps your local development working
+    "https://ai-career-coach-frontend-peach.vercel.app", # YOUR LIVE FRONTEND
+]
+
+# 3. Add the middleware to your app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"], # Allows GET, POST, OPTIONS, etc.
+    allow_headers=["*"], # Allows all headers
+)
 
 # BRAND NEW: Initialize the Rate Limiter
 limiter = Limiter(key_func=get_remote_address)
