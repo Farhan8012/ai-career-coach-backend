@@ -45,10 +45,10 @@ origins = [
 # 3. Add the middleware to your app
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"], # Allows GET, POST, OPTIONS, etc.
-    allow_headers=["*"], # Allows all headers
+    allow_origins=["*"],  # The star means "Allow EVERY website"
+    allow_credentials=False, # This MUST be False when using the star
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # BRAND NEW: Initialize the Rate Limiter
