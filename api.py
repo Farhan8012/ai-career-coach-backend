@@ -20,6 +20,11 @@ from utils.github_scanner import analyze_github_profile, generate_dev_scorecard
 from utils.pdf_generator import create_pdf_report
 from utils.dsa_interviewer import generate_dsa_question, evaluate_dsa_answer, get_dsa_hint
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from fastapi import Request
+
 # 1. Load environment variables
 load_dotenv()
 supabase_url = os.getenv("SUPABASE_URL")
@@ -32,6 +37,13 @@ app = FastAPI(
     description="The backend engine for the v2.0 Resume Analyzer",
     version="2.0.0"
 )
+
+# BRAND NEW: Initialize the Rate Limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# ... (keep your CORS setup here) ...
 
 # --- CORS SETUP ---
 app.add_middleware(
@@ -260,11 +272,14 @@ async def api_cover_letter(
 # --- THE MASTER ENDPOINT ---
 
 @app.post("/api/evaluate-candidate")
+@limiter.limit("5/minute") # Protect this route! Max 5 requests per minute per IP.
 async def evaluate_candidate(
+    request: Request, # <-- MUST ADD THIS!
     github_username: str = Form(...),
     job_description: str = Form(...),
     resume: UploadFile = File(...)
 ):
+    # ... rest of your existing code stays exactly the same! ...
     try:
         if resume.content_type != "application/pdf":
             return {"status": "error", "message": "Please upload a valid PDF file."}
@@ -431,7 +446,9 @@ async def api_dsa_question(resume: UploadFile = File(...)):
         return {"status": "error", "message": str(e)}
 
 @app.post("/api/dsa-evaluate")
+@limiter.limit("10/minute")
 def api_dsa_evaluate(data: DSAEvalRequest):
+    
     try:
         feedback = evaluate_dsa_answer(data.question, data.user_code)
         return {"status": "success", "feedback": feedback}
