@@ -445,12 +445,12 @@ async def api_dsa_question(resume: UploadFile = File(...)):
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-@app.post("/your-endpoint-path") # (Whatever your path is)
+@app.post("/api/evaluate-candidate") # Fixed the path!
 @limiter.limit("10/minute")
-async def api_dsa_evaluate(request: Request, data: YourDataModel):
-    
+async def api_dsa_evaluate(request: Request, data: Any): # Replace 'Any' with your actual Pydantic model name (e.g., DSAEvaluateRequest)
     try:
         feedback = evaluate_dsa_answer(data.question, data.user_code)
+        # ... rest of your code stays the same
         return {"status": "success", "feedback": feedback}
     except Exception as e:
         return {"status": "error", "message": str(e)}
