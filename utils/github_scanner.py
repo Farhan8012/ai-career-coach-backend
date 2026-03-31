@@ -1,13 +1,11 @@
 import os
 import requests
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
 
 # Load environment variables
 load_dotenv()
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-
-genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 def get_github_metrics(username: str):
     """Fetches advanced GitHub metrics AND detailed repository data for the UI."""
@@ -70,7 +68,7 @@ def get_github_metrics(username: str):
 def generate_dev_scorecard(github_stats: dict):
     """Uses advanced GitHub stats to ask Gemini to generate a developer evaluation."""
     try:
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        client = genai.Client(api_key=os.getenv("GOOGLE_API_KEY"))
         
         # Format languages nicely for the AI
         langs = github_stats.get("top_languages", {})
@@ -91,7 +89,10 @@ def generate_dev_scorecard(github_stats: dict):
         
         Do not use formatting like bolding or bullet points. Just write the short paragraph.
         """
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
         return response.text.strip()
     except Exception as e:
         print(f"Gemini Error: {e}")

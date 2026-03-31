@@ -1,4 +1,4 @@
-import google.generativeai as genai
+from google import genai
 import streamlit as st
 
 def ask_resume_question(resume_text, question):
@@ -6,9 +6,7 @@ def ask_resume_question(resume_text, question):
     Answers a specific question about the resume text.
     """
     try:
-        genai.configure(api_key=st.secrets["GOOGLE_API_KEY"])
-        # Use the model that works best for you (e.g., gemini-2.5-flash or gemini-1.5-flash)
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        client = genai.Client(api_key=st.secrets["GOOGLE_API_KEY"])
 
         prompt = f"""
         You are an intelligent assistant helping a recruiter analyze a resume.
@@ -25,7 +23,10 @@ def ask_resume_question(resume_text, question):
         3. Be concise and professional.
         """
 
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
         return response.text
 
     except Exception as e:
