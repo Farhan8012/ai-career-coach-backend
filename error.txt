@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "<string>", line 2, in <module>
+  File "D:\ai-career-coach-backend\api.py", line 15, in <module>
+    from utils.resume_rewriter import optimize_bullet_point
+  File "D:\ai-career-coach-backend\utils\resume_rewriter.py", line 3, in <module>
+    from google import genai
+ImportError: cannot import name 'genai' from 'google' (unknown location)
