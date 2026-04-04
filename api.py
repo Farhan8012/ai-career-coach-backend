@@ -37,11 +37,14 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# --- BULLETPROOF CORS SETUP ---
+# --- PRODUCTION CORS SETUP ---
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Open to all during testing
-    allow_credentials=False, # MUST be false when origins is "*"
+    allow_origins=[
+        "https://ai-career-coach-frontend-peach.vercel.app",  # Live Vercel frontend
+        "http://localhost:3000",  # Local development
+    ],
+    allow_credentials=True,
     allow_methods=["*"], 
     allow_headers=["*"], 
 )
